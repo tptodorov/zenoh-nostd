@@ -37,6 +37,30 @@ where
                             cb.call(&sample).await;
                         }
                     }
+                    NetworkBody::Declare(Declare {
+                        body: DeclareBody::DeclareToken(DeclareToken { wire_expr, .. }),
+                        ..
+                    }) => {
+                        let ke = keyexpr::new(wire_expr.suffix)?;
+                        let sample = Sample::new(ke, &[1]);
+                        for cb in state.sub_callbacks.intersects(ke) {
+                            cb.call(&sample).await;
+                        }
+                    }
+                    NetworkBody::Declare(Declare {
+                        body:
+                            DeclareBody::UndeclareToken(UndeclareToken {
+                                wire_expr: Some(wire_expr),
+                                ..
+                            }),
+                        ..
+                    }) => {
+                        let ke = keyexpr::new(wire_expr.suffix)?;
+                        let sample = Sample::new(ke, &[0]);
+                        for cb in state.sub_callbacks.intersects(ke) {
+                            cb.call(&sample).await;
+                        }
+                    }
                     NetworkBody::Response(Response {
                         rid,
                         wire_expr,
