@@ -41,10 +41,12 @@ where
                         body: DeclareBody::DeclareToken(DeclareToken { wire_expr, .. }),
                         ..
                     }) => {
-                        let ke = keyexpr::new(wire_expr.suffix)?;
-                        let sample = Sample::new(ke, &[1]);
-                        for cb in state.sub_callbacks.intersects(ke) {
-                            cb.call(&sample).await;
+                        // A token announced under an alias we don't track has no usable key: skip it.
+                        if let Ok(ke) = keyexpr::new(wire_expr.suffix) {
+                            let sample = Sample::new(ke, &[1]);
+                            for cb in state.sub_callbacks.intersects(ke) {
+                                cb.call(&sample).await;
+                            }
                         }
                     }
                     NetworkBody::Declare(Declare {
@@ -55,10 +57,11 @@ where
                             }),
                         ..
                     }) => {
-                        let ke = keyexpr::new(wire_expr.suffix)?;
-                        let sample = Sample::new(ke, &[0]);
-                        for cb in state.sub_callbacks.intersects(ke) {
-                            cb.call(&sample).await;
+                        if let Ok(ke) = keyexpr::new(wire_expr.suffix) {
+                            let sample = Sample::new(ke, &[0]);
+                            for cb in state.sub_callbacks.intersects(ke) {
+                                cb.call(&sample).await;
+                            }
                         }
                     }
                     NetworkBody::Response(Response {
