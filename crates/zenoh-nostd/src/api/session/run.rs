@@ -42,7 +42,10 @@ where
                         ..
                     }) => {
                         // A token announced under an alias we don't track has no usable key: skip it.
-                        if let Ok(ke) = keyexpr::new(wire_expr.suffix) {
+                        if let Some(ke) = (!wire_expr.suffix.is_empty())
+                            .then(|| keyexpr::new(wire_expr.suffix).ok())
+                            .flatten()
+                        {
                             let sample = Sample::new(ke, &[1]);
                             for cb in state.sub_callbacks.intersects(ke) {
                                 cb.call(&sample).await;
@@ -57,7 +60,10 @@ where
                             }),
                         ..
                     }) => {
-                        if let Ok(ke) = keyexpr::new(wire_expr.suffix) {
+                        if let Some(ke) = (!wire_expr.suffix.is_empty())
+                            .then(|| keyexpr::new(wire_expr.suffix).ok())
+                            .flatten()
+                        {
                             let sample = Sample::new(ke, &[0]);
                             for cb in state.sub_callbacks.intersects(ke) {
                                 cb.call(&sample).await;
