@@ -48,13 +48,18 @@ impl<T, const MTU: usize, const SOCKS: usize> BufferPoolDrop for BufferPool<T, M
     }
 }
 
-pub struct EmbassyLinkManager<'net, const MTU: usize, const SOCKS: usize> {
+/// `MTU` is the size of each socket's rx and tx buffer and `SOCKS` how many sockets can be open.
+/// `META` is how many packets each socket can queue (embassy's `PacketMetadata` slots); it has
+/// nothing to do with the MTU, and sizing it by the MTU made this struct about 120 KB.
+pub struct EmbassyLinkManager<'net, const MTU: usize, const SOCKS: usize, const META: usize = 8> {
     stack: Stack<'net>,
     buffers: RefCell<BufferPool<u8, MTU, SOCKS>>,
-    metadatas: RefCell<BufferPool<PacketMetadata, MTU, SOCKS>>,
+    metadatas: RefCell<BufferPool<PacketMetadata, META, SOCKS>>,
 }
 
-impl<'net, const MTU: usize, const SOCKS: usize> EmbassyLinkManager<'net, MTU, SOCKS> {
+impl<'net, const MTU: usize, const SOCKS: usize, const META: usize>
+    EmbassyLinkManager<'net, MTU, SOCKS, META>
+{
     pub fn new(stack: Stack<'net>) -> Self {
         Self {
             stack,
@@ -109,8 +114,8 @@ pub enum EmbassyLinkRx<'link> {
     Udp(udp::EmbassyUdpLinkRx<'link>),
 }
 
-impl<'net, const MTU: usize, const SOCKS: usize> ZLinkManager
-    for EmbassyLinkManager<'net, MTU, SOCKS>
+impl<'net, const MTU: usize, const SOCKS: usize, const META: usize> ZLinkManager
+    for EmbassyLinkManager<'net, MTU, SOCKS, META>
 {
     type Link<'a>
         = EmbassyLink<'a>
@@ -221,5 +226,21 @@ impl<'net, const MTU: usize, const SOCKS: usize> ZLinkManager
             }
             _ => zenoh::zbail!(LinkError::CouldNotParseProtocol),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The manager is built by value, often on a small stack, and kept in a static. A metadata pool
+    /// with one entry per MTU byte once made it about 120 KB and overflowed the main task's stack.
+    #[test]
+    fn the_link_manager_stays_small() {
+        let size = core::mem::size_of::<EmbassyLinkManager<'static, 512, 3>>();
+        assert!(
+            size < 16 * 1024,
+            "EmbassyLinkManager<512, 3> is {size} bytes"
+        );
     }
 }
