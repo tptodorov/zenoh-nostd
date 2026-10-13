@@ -247,6 +247,32 @@ where
         SubscriberBuilder::new(self, ke)
     }
 
+    /// Asks the router again for the liveliness tokens that exist now under `ke`. They reach the
+    /// liveliness subscribers whose key expression matches, like the first answer did. Tokens travel
+    /// as ordinary declarations, and over UDP a lost one is never resent: call this when a peer shows
+    /// up that no token announced.
+    pub async fn liveliness_refresh(&self, ke: &keyexpr) -> core::result::Result<(), SessionError> {
+        let id = self.state().await.next();
+        self.driver
+            .tx()
+            .await
+            .send(core::iter::once(NetworkMessage {
+                reliability: Reliability::default(),
+                qos: QoS::default(),
+                body: NetworkBody::Interest(Interest {
+                    id,
+                    mode: InterestMode::Current,
+                    inner: InterestInner {
+                        options: InterestOptions::TOKENS.options,
+                        wire_expr: Some(WireExpr::from(ke)),
+                    },
+                    ..Default::default()
+                }),
+            }))
+            .await?;
+        Ok(())
+    }
+
     /// Subscribes to liveliness tokens matching `ke`. Samples carry the token's key expression
     /// and the payload `[1]` when the token appears, `[0]` when it is dropped.
     pub fn declare_liveliness_subscriber(
